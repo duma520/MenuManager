@@ -10,6 +10,20 @@ GitHub：https://github.com/duma520
 
 网站：https://github.com/duma520
 
+软件截图：
+
+![image](https://github.com/user-attachments/assets/14f18773-c9c6-402a-ba05-54f1edde6dfc)
+
+![image](https://github.com/user-attachments/assets/56452e11-3498-4344-bc4c-65fc0704cf6b)
+
+![image](https://github.com/user-attachments/assets/46532c71-fe6a-4d82-844f-3b7d0513b116)
+
+![image](https://github.com/user-attachments/assets/53a2acfb-2539-4bc9-88d8-e413ba45d390)
+
+![image](https://github.com/user-attachments/assets/e03c3fd6-b1e0-42a3-97ff-0e2f3523af1c)
+
+![image](https://github.com/user-attachments/assets/3a7fd904-d088-4c42-856a-0f387f67ecfe)
+
 
 ## 目录
 
