@@ -1,10 +1,15 @@
 # 高级点菜管理系统 - 全方位使用说明书
 
 作者：杜玛
+
 版权永久所有
+
 日期：2025年
+
 GitHub：https://github.com/duma520
+
 网站：https://github.com/duma520
+
 
 ## 目录
 
