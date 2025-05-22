@@ -1,4 +1,4 @@
-__version__ = "3.0.7"
+__version__ = "3.4.0"
 
 import os
 import json
@@ -9,10 +9,10 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
                              QTabWidget, QTableWidget, QTableWidgetItem, QMessageBox,
                              QFileDialog, QInputDialog, QComboBox, QGroupBox, QRadioButton,
                              QCheckBox, QTextEdit, QStackedWidget, QScrollArea,QFormLayout,
-                             QDialog,QDialogButtonBox,QDoubleSpinBox,QListWidgetItem)
+                             QDialog,QDialogButtonBox,QDoubleSpinBox,QListWidgetItem, QShortcut)
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5 import QtCore
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QKeySequence
 from pypinyin import lazy_pinyin
 from PyQt5 import QtGui
 
@@ -564,7 +564,7 @@ class MainWindow(QMainWindow):
         if os.path.exists(icon_path):
             self.setWindowIcon(QtGui.QIcon(icon_path))
 
-        # 初始化管理器
+        # 初始化管理器 - 直接创建新的空菜单
         self.menu_manager = MenuManager()
         self.order_manager = OrderManager(self.menu_manager)
         
@@ -573,21 +573,18 @@ class MainWindow(QMainWindow):
         
         self.last_backup_hash = None  # 用于备份比对
         
-        # 先初始化UI
+        # 初始化UI
         self.init_ui()
         self.setup_shortcuts()
-        
-        # 然后尝试加载上次配置，如果失败则保持默认空菜单
-        if not self.load_last_config():
-            # 加载失败时的默认初始化
-            self.menu_manager = MenuManager()
-            self.order_manager = OrderManager(self.menu_manager)
-            self.statusBar().showMessage("新建空菜单", 2000)
 
-        
-        
-        #self.init_ui()
-        #self.setup_shortcuts()
+        self.statusBar().showMessage("新建空菜单", 2000)
+
+        # 然后尝试加载上次配置，如果失败则保持默认空菜单
+        #if not self.load_last_config():
+        #    # 加载失败时的默认初始化
+        #    self.menu_manager = MenuManager()
+        #    self.order_manager = OrderManager(self.menu_manager)
+        #    self.statusBar().showMessage("新建空菜单", 2000)
         
         # 自动备份定时器
         self.backup_timer = QTimer()
@@ -623,6 +620,9 @@ class MainWindow(QMainWindow):
         recent_menu = self.menuBar().addMenu("最近订单")
         self.recent_orders = self.load_recent_orders()
         self.update_recent_orders_menu(recent_menu)
+        
+        # 设置快捷键（新增部分）
+        self.setup_shortcuts()
         
         # 自动备份定时器
         self.backup_timer = QTimer()
@@ -1051,6 +1051,10 @@ class MainWindow(QMainWindow):
             Qt.Key_9: lambda: self.quick_add_dish(9),
             Qt.Key_0: lambda: self.quick_add_dish(0),
         }
+
+        # 新增 Ctrl+S 保存快捷键
+        save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
+        save_shortcut.activated.connect(self.save_menu)
 
     def keyPressEvent(self, event):
         # 处理快捷键
@@ -1693,6 +1697,13 @@ class MainWindow(QMainWindow):
         self.update_history_table()
         self.update_top_dishes_table()
         self.update_habits_table()
+        
+        # 清空支付表格
+        if hasattr(self, 'payment_table'):
+            self.payment_table.setRowCount(0)
+        if hasattr(self, 'total_label'):
+            self.total_label.setText("总金额: 0元")
+
 
     def show_add_dish_dialog(self):
         dialog = DishEditDialog(categories=self.menu_manager.categories, parent=self)
@@ -2076,12 +2087,26 @@ class MainWindow(QMainWindow):
 
     def new_menu(self):
         reply = QMessageBox.question(self, "新建菜单", "创建新菜单会清空当前菜单，是否继续?",
-                                   QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+                                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.Yes:
             self.menu_manager = MenuManager()
-            self.order_manager = OrderManager(self.menu_manager)  # 传入新的 menu_manager
+            self.order_manager = OrderManager(self.menu_manager)
+            self.menu_manager.current_file = None
+            
+            # 重置UI控件状态
+            self.table_input.setText("1")
+            self.customer_name_input.clear()
+            self.remark_input.clear()
+            self.spicy_check.setCurrentIndex(0)
+            self.quantity_spin.setValue(1)
+            
+            # 完全刷新所有视图
             self.refresh_all_views()
             self.statusBar().showMessage("已创建新菜单", 2000)
+            
+            # 更新窗口标题
+            self.setWindowTitle("高级点菜管理系统")
+
 
     def open_menu(self):
         options = QFileDialog.Options()
@@ -2092,7 +2117,8 @@ class MainWindow(QMainWindow):
             new_manager = MenuManager()
             if new_manager.load_from_file(filename):
                 self.menu_manager = new_manager
-                self.order_manager = OrderManager(self.menu_manager)  # 传入新的 menu_manager
+                self.order_manager = OrderManager(self.menu_manager)
+                self.menu_manager.current_file = filename
                 self.refresh_all_views()
                 
                 base_name = os.path.basename(filename)
@@ -2102,25 +2128,36 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "错误", "无法加载菜单文件")
 
     def save_menu(self):
-        if self.menu_manager.current_file:
-            self.menu_manager.save_to_file(self.menu_manager.current_file)
-            self.statusBar().showMessage("菜单已保存", 2000)
-        else:
+        if not self.menu_manager.current_file:
+            # 如果是新建的菜单且从未保存过，则调用另存为
             self.save_menu_as()
+        else:
+            try:
+                self.menu_manager.save_to_file(self.menu_manager.current_file)
+                self.statusBar().showMessage(f"菜单已保存到: {self.menu_manager.current_file}", 2000)
+            except Exception as e:
+                QMessageBox.critical(self, "保存失败", f"保存菜单失败:\n{str(e)}")
+                # 保存失败时尝试另存为
+                self.save_menu_as()
+
 
     def save_menu_as(self):
         options = QFileDialog.Options()
         filename, _ = QFileDialog.getSaveFileName(self, "另存菜单文件", "", 
-                                                 "JSON文件 (*.json);;所有文件 (*)", 
-                                                 options=options)
+                                                "JSON文件 (*.json);;所有文件 (*)", 
+                                                options=options)
         if filename:
             if not filename.endswith('.json'):
                 filename += '.json'
-            if self.menu_manager.save_to_file(filename):
-                self.menu_manager.current_file = filename
+            try:
+                self.menu_manager.save_to_file(filename)
+                self.menu_manager.current_file = filename  # 更新当前文件路径
                 base_name = os.path.basename(filename)
                 self.setWindowTitle(f"高级点菜管理系统 - {base_name}")
                 self.statusBar().showMessage(f"菜单已保存为 {base_name}", 2000)
+            except Exception as e:
+                QMessageBox.critical(self, "保存失败", f"保存菜单失败:\n{str(e)}")
+
 
     def auto_backup(self):
         if not self.menu_manager.current_file:
