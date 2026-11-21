@@ -1,1 +1,1 @@
-pyinstaller --windowed  --icon=icon.ico --add-data "icon.ico;." MenuManager.py
+pyinstaller --windowed  --noconfirm  --icon=icon.ico --add-data "icon.ico;." MenuManager.py
